@@ -1,0 +1,109 @@
+---
+title: "AML project"
+author: "Shein Alexander"
+date: "14 11 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+Loading libraries
+
+```{r}
+library(caret)
+library(randomForest)
+library(doParallel)
+cl <- makePSOCKcluster(4)
+registerDoParallel(cl)
+set.seed(3332)
+```
+
+Reading and cleaning data
+
+```{r}
+trainDataRaw <- read.csv('pml-training.csv')
+validationDataRaw <- read.csv('pml-testing.csv')
+
+trainData <- trainDataRaw[, colSums(is.na(trainDataRaw)) == 0]
+validationData <- validationDataRaw[, colSums(is.na(trainDataRaw)) == 0]
+
+inTrain <- createDataPartition(y=trainData$classe, p=0.6, list=FALSE)
+training <- trainData[inTrain,]
+testing <- trainData[-inTrain,]
+# Amount of columns should correspond
+dim(validationData)[2]==dim(trainData)[2]
+```
+
+Drop columns with near zero variance
+```{r}
+nsv <- nearZeroVar(trainData)
+nsv
+```
+
+```{r}
+training <- training[,-nsv]
+testing <- testing[,-nsv]
+validationData <- validationData[,-nsv]
+dim(training)
+dim(validationData)
+```
+
+Removing some more columns
+```{r}
+unneeded_names <- c("user_name","raw_timestamp_part_1","raw_timestamp_part_2","cvtd_timestamp")
+training <- training[ , !(names(training) %in% unneeded_names)]
+testing <- testing[ , !(names(testing) %in% unneeded_names)]
+validationData <- validationData[ , !(names(validationData) %in% unneeded_names)]
+dim(validationData)
+```
+Training random forest and other models to check error
+
+```{r}
+
+modelRF <- train(classe ~ ., data=training, method="rf", trControl=trainControl(method = "cv", number = 2))
+print(modelRF)
+```
+
+
+```{r}
+model2 <- train(classe~., data=training, method="lda", metric = "Accuracy", trControl=trainControl(method = "cv", number = 2))
+print(model2)
+```
+
+```{r}
+model3 <- train(classe~., data=training, method="rpart", trControl=trainControl(method = "cv", number = 2))
+print(model3)
+```
+
+Let's now evaluate random forest 
+```{r}
+x_test <- testing[ , !(names(testing) %in% c('classe'))]
+y_test <- testing[ , (names(testing) %in% c('classe'))]
+predictions <- predict(modelRF, x_test)
+# summarize results
+confusionMatrix(predictions, y_test)
+```
+
+Evaluating LDA
+
+```{r}
+predictions <- predict(model2, x_test)
+# summarize results
+confusionMatrix(predictions, y_test)
+```
+
+Evaluating RPART
+```{r}
+predictions <- predict(model3, x_test)
+# summarize results
+confusionMatrix(predictions, y_test)
+```
+
+
+Looks like both LDA and RF worked exceedingly well.
+I think that using RF is preferable.
+Now predicting for validation dataset.
+```{r}
+predictions <- predict(modelRF, validationData, type = 'raw')
+```
