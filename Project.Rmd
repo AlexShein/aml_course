@@ -19,7 +19,9 @@ registerDoParallel(cl)
 set.seed(3332)
 ```
 
-Reading and cleaning data
+Reading and cleaning data.
+
+I decided to split train data into train and test and use given test set as validation one to evaluate different models ando choose the best one by out of sample error.
 
 ```{r}
 trainDataRaw <- read.csv('pml-training.csv')
@@ -64,13 +66,13 @@ Training random forest and other models to check error
 modelRF <- train(classe ~ ., data=training, method="rf", trControl=trainControl(method = "cv", number = 2))
 print(modelRF)
 ```
-
-
+I expect that with such accuracy on train set RF will do well on test one because usually it doesn't over fit.
+Especially because model itself is using cross validation to tune the parameters.
 ```{r}
 model2 <- train(classe~., data=training, method="lda", metric = "Accuracy", trControl=trainControl(method = "cv", number = 2))
 print(model2)
 ```
-
+Out of sample error may be bigger here.
 ```{r}
 model3 <- train(classe~., data=training, method="rpart", trControl=trainControl(method = "cv", number = 2))
 print(model3)
@@ -84,6 +86,7 @@ predictions <- predict(modelRF, x_test)
 # summarize results
 confusionMatrix(predictions, y_test)
 ```
+So, as expected, it showed very good results.
 
 Evaluating LDA
 
@@ -102,7 +105,7 @@ confusionMatrix(predictions, y_test)
 
 
 Looks like both LDA and RF worked exceedingly well.
-I think that using RF is preferable.
+Because their results are quite similar I'll use RF to predict for the validation set.
 Now predicting for validation dataset.
 ```{r}
 predictions <- predict(modelRF, validationData, type = 'raw')
